@@ -259,7 +259,7 @@ function getElementStyles(elementType: string): React.CSSProperties {
   const baseStyles: React.CSSProperties = {
     margin: 0,
     padding: 0,
-    fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Noto Sans CJK SC", "Hiragino Sans GB", "Source Han Sans SC", sans-serif',
     color: '#333333',
     lineHeight: '1.6',
     wordBreak: 'break-word',

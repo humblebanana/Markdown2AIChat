@@ -1,21 +1,26 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { RenderedElement } from '@/types/markdown';
 import MobileInputBar from './MobileInputBar';
+import ChatHeader from '@/components/chat/ChatHeader';
+import Message from '@/components/chat/Message';
 import ProductCard from '@/components/product/ProductCard';
 import { getProductMockData } from '@/lib/product/productUtils';
 
 // 通用SKU检测和渲染函数
-const renderWithSkuCards = (children: React.ReactNode, showDebugBounds = false): React.ReactNode => {
+const renderWithSkuCards = (
+  children: React.ReactNode,
+  showDebugBounds = false,
+  blockReady: boolean = true
+): React.ReactNode => {
   // 将children转换为字符串来检查
   const childrenString = React.Children.toArray(children)
     .map(child => {
       if (typeof child === 'string') return child;
-      if (React.isValidElement(child) && child.props.children) {
-        return typeof child.props.children === 'string' ? child.props.children : '';
+      if (React.isValidElement<{ children?: React.ReactNode }>(child) && child.props.children) {
+        return typeof child.props.children === 'string' ? (child.props.children as string) : '';
       }
       return '';
     })
@@ -27,7 +32,10 @@ const renderWithSkuCards = (children: React.ReactNode, showDebugBounds = false):
   
   if (matches && matches.length > 0) {
     // 解析每个匹配项
-    const parts = [];
+    type SkuPart = { type: 'sku_card'; skuId: string; title: string };
+    type TextPart = { type: 'text'; content: string };
+    type Part = SkuPart | TextPart;
+    const parts: Part[] = [];
     let lastIndex = 0;
     let match;
     
@@ -69,6 +77,7 @@ const renderWithSkuCards = (children: React.ReactNode, showDebugBounds = false):
                 key={`sku-${part.skuId}-${index}`}
                 product={productData}
                 showDebugBounds={showDebugBounds}
+                skeleton={!blockReady}
               />
             );
           } else {
@@ -91,10 +100,14 @@ interface MobilePreviewHTMLProps {
   markdownContent: string; // 直接接收原始Markdown文本
   queryValue?: string; // 用户查询内容
   isLoading?: boolean;
+  isStreaming?: boolean;
+  streamProgress?: number; // 流式进度（基于字符数）
+  streamStrategy?: 'char' | 'block';
   showDebugBounds?: boolean;
   previewMode?: 'single' | 'full'; // 预览模式：单屏或全屏
   showSidebar?: boolean; // 侧边栏显示状态，用于计算可用空间
   sidebarWidth?: number; // 侧边栏宽度百分比，用于精确计算缩放
+  themeVariant?: import('@/types/theme').ThemeVariant;
 }
 
 /**
@@ -105,13 +118,45 @@ export default function MobilePreviewHTML({
   markdownContent,
   queryValue = '',
   isLoading = false,
+  isStreaming = false,
+  streamProgress = Number.POSITIVE_INFINITY,
+  streamStrategy = 'char',
   showDebugBounds = false,
   previewMode = 'single',
   showSidebar = true,
-  sidebarWidth = 50
+  sidebarWidth = 50,
+  themeVariant = 'edge'
 }: MobilePreviewHTMLProps) {
   
   const isSingleMode = previewMode === 'single';
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // 智能跟随滚动：仅在接近底部时自动滚动
+  const autoFollowRef = useRef(true);
+  const SCROLL_FOLLOW_THRESHOLD = 120; // px
+
+  const handleScroll = () => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const distanceToBottom = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+    autoFollowRef.current = distanceToBottom < SCROLL_FOLLOW_THRESHOLD;
+  };
+
+  // 在单屏模式流式播放时，自动跟随滚动到底部（若用户接近底部）
+  useEffect(() => {
+    if (!isSingleMode || !isStreaming) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const id = window.requestAnimationFrame(() => {
+      if (autoFollowRef.current) {
+        try {
+          scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+        } catch {
+          scroller.scrollTop = scroller.scrollHeight;
+        }
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [markdownContent, isStreaming, isSingleMode, streamProgress]);
   
   // 计算全屏模式的缩放比例 - 确保完整内容可见
   const getScaleRatio = () => {
@@ -149,7 +194,7 @@ export default function MobilePreviewHTML({
             : 'rounded-lg shadow-lg'
         }`}
         style={{
-          fontFamily: 'Microsoft YaHei, 微软雅黑, -apple-system, Helvetica, sans-serif',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Helvetica Neue", Helvetica, "PingFang SC", "HarmonyOS Sans SC", "MiSans", "OPPOSans", "Noto Sans SC", "Source Han Sans SC", "Hiragino Sans GB", "Segoe UI", Roboto, Arial, sans-serif',
           ...(isSingleMode
             ? {
                 width: '390px',
@@ -169,22 +214,8 @@ export default function MobilePreviewHTML({
               })
         }}
       >
-      {/* 顶部导航栏 */}
-      <div className="bg-white px-4 py-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <img 
-              src="https://img13.360buyimg.com/imagetools/jfs/t1/330920/24/6011/8950/68b180ebFa0b81de2/2ae3e75b7cc7245b.png"
-              alt="" 
-              className="w-6 h-6 mr-2"
-            />
-            <div className="text-sm font-medium text-gray-900">有问题，找京言</div>
-          </div>
-          <div className="close-nav-icon touch">
-            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADgAAAA4BAMAAABaqCYtAAAAMFBMVEUAAAAAAAAFBQUAAAAAAAAAAAAFBQUCAgIAAAADAwMEBAQAAAAaGhoKCgoQEBAHBwczkGvnAAAADHRSTlMAX++QUKDf3xDfz68+LBM2AAAA30lEQVQ4y3zTIQ4CQQyF4eKQBM8NUByAM3AIbsOtkKSQkCBxWBwWQSrIL97LW7HbdvbbZGfaWu6OZa/1p+r0vq7c2uJ5O9S+++4WN92v+nYPVdh9rm0PdbAvcx9qYD/mofRPHEVABRIpJLSQWCGJg2QWkuqr5BZSUEjFQkoKqTkIBRoKNBRoKNBQoKFApUClwLyYP6sQGn4lbULevrjx+cjiYec2yQ2WWzM3dR6HPEh5BPPw5rEnVEqkVCEA6OhvvgiNmFpzcBepxxl08BTG+ItxVnwVAINRCfYM4KnMAAAzyXShcWg9AgAAAABJRU5ErkJggg==" alt="" />
-          </div>
-        </div>
-      </div>
+      {/* 顶部导航栏（通用品牌化） */}
+      <ChatHeader variant={themeVariant} />
 
       {/* 消息滚动视图 */}
       <div 
@@ -197,36 +228,16 @@ export default function MobilePreviewHTML({
           backgroundColor: 'rgb(255, 255, 255)',
           paddingBottom: isSingleMode ? '83px' : '0' // 为输入框预留空间
         }}
+        ref={scrollerRef}
         data-role="mobile-scrollview"
+        onScroll={handleScroll}
       >
-        <div className="p-4" data-role="mobile-scrollcontent">
+        <div className="pt-4 pb-2 px-2" data-role="mobile-scrollcontent">
 
 
           {/* 用户消息气泡 */}
           {queryValue && (
-            <div className="user-message-container-floor user-message-container message-container mb-4">
-              <div className="content" style={{ display: 'flex', alignItems: 'center', marginBottom: '0.16rem' }}>
-                <div className="topic-container"></div>
-                <div 
-                  className="text-container"
-                  style={{
-                    background: 'linear-gradient(90deg,rgba(249,18,180,.12),rgba(255,15,35,.12))',
-                    borderRadius: '12px 12px 4px 12px',
-                    boxSizing: 'border-box',
-                    marginLeft: 'auto',
-                    maxWidth: '70%',
-                    padding: '8px 12px',
-                    color: '#1a1a1a',
-                    fontSize: '14px',
-                    fontFamily: 'Microsoft YaHei, 微软雅黑, -apple-system, Helvetica, sans-serif',
-                    lineHeight: '1.4',
-                    textAlign: 'left'
-                  }}
-                >
-                  {queryValue}
-                </div>
-              </div>
-            </div>
+            <Message role="user" variant={themeVariant}>{queryValue}</Message>
           )}
 
           {/* AI回复消息卡片 */}
@@ -245,7 +256,7 @@ export default function MobilePreviewHTML({
                   </div>
                 </div>
 
-                {/* Markdown内容渲染区域 - 使用ReactMarkdown进行1:1渲染 */}
+                {/* Markdown内容渲染区域 - 块级流式/静态 */}
                 <div className="markdown-global-style-floor">
                   {isLoading ? (
                     <div className="flex items-center justify-center py-8">
@@ -253,33 +264,34 @@ export default function MobilePreviewHTML({
                       <span className="ml-2 text-gray-500 text-sm">AI正在分析中...</span>
                     </div>
                   ) : (
-                    <div className={`space-y-4 ${showDebugBounds ? 'border border-red-300 bg-red-50 p-2' : ''}`}> 
-                      {markdownContent ? (
-                        <ReactMarkdown 
-                          remarkPlugins={[remarkGfm]}
-                          components={{
+                    <div className={`space-y-4 ${showDebugBounds ? 'border border-red-300 bg-red-50 p-2' : ''}`}>
+                      {(() => {
+                        const content = !markdownContent ? (
+                          <div className="text-gray-500 text-sm text-left py-2">等待输入Markdown内容...</div>
+                        ) : !isStreaming || !isFinite(streamProgress) ? (
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                             h1: ({ children }) => (
                               <h1 className="text-xl font-bold text-gray-900 mb-2">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </h1>
                             ),
                             h2: ({ children }) => (
                               <h2 className="text-lg font-semibold text-gray-800 mb-1.5">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </h2>
                             ),
                             h3: ({ children }) => (
                               <h3 className="text-base font-semibold text-gray-800 mb-1.5">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </h3>
                             ),
-                            p: ({ children }) => {
+                            p: ({ children }: { children?: React.ReactNode }) => {
                               // 将children转换为字符串来检查
                               const childrenString = React.Children.toArray(children)
                                 .map(child => {
                                   if (typeof child === 'string') return child;
-                                  if (React.isValidElement(child) && child.props.children) {
-                                    return typeof child.props.children === 'string' ? child.props.children : '';
+                                  if (React.isValidElement<{ children?: React.ReactNode }>(child) && child.props.children) {
+                                    return typeof child.props.children === 'string' ? (child.props.children as string) : '';
                                   }
                                   return '';
                                 })
@@ -297,7 +309,10 @@ export default function MobilePreviewHTML({
                                 console.log('Found SKU links in paragraph:', matches);
                                 
                                 // 解析每个匹配项
-                                const parts = [];
+                                type SkuPart = { type: 'sku_card'; skuId: string; title: string };
+                                type TextPart = { type: 'text'; content: string };
+                                type Part = SkuPart | TextPart;
+                                const parts: Part[] = [];
                                 let lastIndex = 0;
                                 let match;
                                 
@@ -389,35 +404,60 @@ export default function MobilePreviewHTML({
                             tr: ({ children }) => <tr>{children}</tr>,
                             th: ({ children }) => (
                               <th className="px-3 py-2 text-left font-semibold text-gray-900 border-b border-gray-300 border-r border-gray-200">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </th>
                             ),
                             td: ({ children }) => (
                               <td className="px-3 py-2 text-gray-700 border-b border-gray-200 border-r border-gray-200">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </td>
                             ),
                             strong: ({ children }) => (
                               <strong className="font-semibold">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </strong>
                             ),
                             em: ({ children }) => (
                               <em className="italic">
-                                {renderWithSkuCards(children, showDebugBounds)}
+                                {renderWithSkuCards(children, showDebugBounds, true)}
                               </em>
                             ),
                             a: ({ href, children }) => {
                               // 普通链接正常处理
                               return <a href={href} className="text-blue-600 underline">{children}</a>;
                             },
-                          }}
-                        >
+                          }}>
 {markdownContent}
-                        </ReactMarkdown>
-                      ) : (
-                        <div className="text-gray-500 text-sm text-center py-4">
-                          等待输入Markdown内容...
+                          </ReactMarkdown>
+                        ) : (
+                          <StreamingBlocks
+                            markdown={markdownContent}
+                            progress={streamProgress}
+                            strategy={streamStrategy}
+                            showDebugBounds={showDebugBounds}
+                          />
+                        );
+
+                        const wrapped = (
+                          <div className={`mdx-typography mdx-${themeVariant}`}>
+                            {content}
+                          </div>
+                        );
+                        if (themeVariant === 'edge') {
+                          return <Message role="ai" variant={'edge'} fullBleed>{wrapped}</Message>;
+                        }
+                        if (themeVariant === 'cards') {
+                          return <div className="bg-white border border-gray-100 rounded-xl shadow-md p-3">{wrapped}</div>;
+                        }
+                        return <Message role="ai" variant={'bubble'}>{wrapped}</Message>;
+                      })()}
+                      {/* 打字机提示（仅在流式播放时显示） */}
+                      {isStreaming && (
+                        <div className="flex items-center text-xs text-gray-500 pt-1">
+                          <span className="inline-flex items-center">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                            正在生成...
+                          </span>
                         </div>
                       )}
                     </div>
@@ -453,11 +493,209 @@ export default function MobilePreviewHTML({
       </div>
 
       {/* 条件渲染的移动端输入框 */}
-      {isSingleMode && <MobileInputBar />}
+      {isSingleMode && <MobileInputBar variant={themeVariant} />}
       
       </div>
     </div>
   );
 }
 
-// 所有复杂的解析函数已移除，现在使用react-markdown进行标准1:1渲染
+// 块级流式渲染组件
+function StreamingBlocks({
+  markdown,
+  progress,
+  strategy,
+  showDebugBounds,
+}: {
+  markdown: string;
+  progress: number;
+  strategy: 'char' | 'block';
+  showDebugBounds: boolean;
+}) {
+  type Block = { type: 'heading' | 'list' | 'code' | 'table' | 'paragraph' | 'blockquote'; raw: string; text: string };
+  const blocks: Block[] = useMemo(() => {
+    const lines = markdown.split('\n');
+    const res: Block[] = [];
+    let i = 0;
+    const flushParagraph = (buf: string[]) => {
+      if (!buf.length) return;
+      const raw = buf.join('\n');
+      res.push({ type: 'paragraph', raw, text: raw });
+      buf.length = 0;
+    };
+    let paragraphBuf: string[] = [];
+
+    while (i < lines.length) {
+      const line = lines[i];
+      // fenced code
+      if (/^```/.test(line)) {
+        flushParagraph(paragraphBuf);
+        const start = i;
+        i++;
+        while (i < lines.length && !/^```/.test(lines[i])) i++;
+        const end = Math.min(i, lines.length - 1);
+        const raw = lines.slice(start, end + 1).join('\n');
+        res.push({ type: 'code', raw, text: raw });
+        i++;
+        continue;
+      }
+      // table block
+      if (line.includes('|')) {
+        flushParagraph(paragraphBuf);
+        const start = i;
+        while (i < lines.length && lines[i].trim() && lines[i].includes('|')) i++;
+        const raw = lines.slice(start, i).join('\n');
+        res.push({ type: 'table', raw, text: raw });
+        continue;
+      }
+      // list block
+      if (/^\s*([*\-+]\s+|\d+\.\s+)/.test(line)) {
+        flushParagraph(paragraphBuf);
+        const start = i;
+        while (i < lines.length && /^\s*([*\-+]\s+|\d+\.\s+)/.test(lines[i])) i++;
+        const raw = lines.slice(start, i).join('\n');
+        res.push({ type: 'list', raw, text: raw });
+        continue;
+      }
+      // heading
+      if (/^#{1,6}\s+/.test(line)) {
+        flushParagraph(paragraphBuf);
+        res.push({ type: 'heading', raw: line, text: line });
+        i++;
+        continue;
+      }
+      // blockquote
+      if (/^>\s+/.test(line)) {
+        flushParagraph(paragraphBuf);
+        const start = i;
+        while (i < lines.length && /^>\s+/.test(lines[i])) i++;
+        const raw = lines.slice(start, i).join('\n');
+        res.push({ type: 'blockquote', raw, text: raw });
+        continue;
+      }
+      // empty line
+      if (!line.trim()) {
+        flushParagraph(paragraphBuf);
+        i++;
+        continue;
+      }
+      paragraphBuf.push(line);
+      i++;
+    }
+    flushParagraph(paragraphBuf);
+    return res;
+  }, [markdown]);
+
+  // 字符模式直接按照可见字符数推进
+
+  const out: React.ReactNode[] = [];
+  let consumed = 0;
+  for (let b = 0; b < blocks.length; b++) {
+    const block = blocks[b];
+    const len = block.text.length;
+    const fullyVisible = consumed + len <= progress;
+    const remaining = Math.max(0, progress - consumed);
+
+    if (block.type === 'code') {
+      if (fullyVisible) {
+        out.push(
+          <ReactMarkdown key={`b-${b}`} remarkPlugins={[remarkGfm]}>
+{block.raw}
+          </ReactMarkdown>
+        );
+      } else {
+        out.push(
+          <div key={`b-${b}-code-skeleton`} className="mb-4">
+            <div className="animate-pulse rounded-md border border-gray-200 bg-gray-50 p-3">
+              <div className="h-3 bg-gray-200 rounded w-11/12 mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-4/5 mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-3/5" />
+            </div>
+          </div>
+        );
+      }
+      consumed += len;
+      continue;
+    }
+
+    if (block.type === 'table') {
+      if (fullyVisible) {
+        out.push(
+          <ReactMarkdown key={`b-${b}`} remarkPlugins={[remarkGfm]}>
+{block.raw}
+          </ReactMarkdown>
+        );
+      } else {
+        out.push(
+          <div key={`b-${b}-table-skeleton`} className="overflow-x-auto mb-4">
+            <div className="min-w-full text-xs border border-gray-200 bg-white">
+              <div className="h-8 bg-gray-100 border-b border-gray-200 animate-pulse" />
+              <div className="h-6 border-b border-gray-100 animate-pulse" />
+              <div className="h-6 border-b border-gray-100 animate-pulse" />
+            </div>
+          </div>
+        );
+      }
+      consumed += len;
+      continue;
+    }
+
+    if (fullyVisible) {
+      out.push(
+        <ReactMarkdown key={`b-${b}`} remarkPlugins={[remarkGfm]} components={{
+          h1: ({ children }) => <h1 className="text-xl font-bold text-gray-900 mb-2">{renderWithSkuCards(children, showDebugBounds, true)}</h1>,
+          h2: ({ children }) => <h2 className="text-lg font-semibold text-gray-800 mb-1.5">{renderWithSkuCards(children, showDebugBounds, true)}</h2>,
+          h3: ({ children }) => <h3 className="text-base font-semibold text-gray-800 mb-1.5">{renderWithSkuCards(children, showDebugBounds, true)}</h3>,
+          th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-gray-900 border-b border-gray-300 border-r border-gray-200">{renderWithSkuCards(children, showDebugBounds, true)}</th>,
+          td: ({ children }) => <td className="px-3 py-2 text-gray-700 border-b border-gray-200 border-r border-gray-200">{renderWithSkuCards(children, showDebugBounds, true)}</td>,
+          strong: ({ children }) => <strong className="font-semibold">{renderWithSkuCards(children, showDebugBounds, true)}</strong>,
+          em: ({ children }) => <em className="italic">{renderWithSkuCards(children, showDebugBounds, true)}</em>,
+        }}>
+{block.raw}
+        </ReactMarkdown>
+      );
+      consumed += len;
+      continue;
+    }
+
+    // 部分可见：根据策略处理
+    if (strategy === 'block') {
+      // 整块模式：当前块未完成时不展示内容，展示占位
+      out.push(
+        <div key={`b-${b}-skeleton`} className="mb-3">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-10/12 mb-2" />
+            <div className="h-4 bg-gray-100 rounded w-8/12" />
+          </div>
+        </div>
+      );
+      break;
+    } else {
+      // 字符模式：揭示当前块的可见部分
+      const visibleChars = Math.max(0, Math.min(remaining, len));
+      const visibleRaw = block.raw.slice(0, visibleChars);
+      out.push(
+        <div key={`b-${b}-partial`}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
+            h1: ({ children }) => <h1 className="text-xl font-bold text-gray-900 mb-2">{renderWithSkuCards(children, showDebugBounds, true)}</h1>,
+            h2: ({ children }) => <h2 className="text-lg font-semibold text-gray-800 mb-1.5">{renderWithSkuCards(children, showDebugBounds, true)}</h2>,
+            h3: ({ children }) => <h3 className="text-base font-semibold text-gray-800 mb-1.5">{renderWithSkuCards(children, showDebugBounds, true)}</h3>,
+            th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-gray-900 border-b border-gray-300 border-r border-gray-200">{renderWithSkuCards(children, showDebugBounds, true)}</th>,
+            td: ({ children }) => <td className="px-3 py-2 text-gray-700 border-b border-gray-200 border-r border-gray-200">{renderWithSkuCards(children, showDebugBounds, true)}</td>,
+            strong: ({ children }) => <strong className="font-semibold">{renderWithSkuCards(children, showDebugBounds, true)}</strong>,
+            em: ({ children }) => <em className="italic">{renderWithSkuCards(children, showDebugBounds, true)}</em>,
+          }}>
+{visibleRaw}
+          </ReactMarkdown>
+          {/* 闪烁光标 */}
+          <span className="typing-caret" aria-hidden="true" />
+          {/* 渐隐遮罩，避免暴露未完成内容 */}
+          <div className="reveal-mask"><div className="reveal-fade" /></div>
+        </div>
+      );
+      break; // 仅渲染到当前块
+    }
+  }
+
+  return <>{out}</>;
+}

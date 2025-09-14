@@ -5,7 +5,39 @@ import { ProductCardProps } from '@/types/product';
  * 商品卡片组件
  * 完全基于线上HTML结构设计，1:1还原移动端展示效果
  */
-export default function ProductCard({ product, showDebugBounds = false }: ProductCardProps) {
+export default function ProductCard({ product, showDebugBounds = false, skeleton = false }: ProductCardProps & { skeleton?: boolean }) {
+  if (skeleton) {
+    return (
+      <div className={`skus-wrap ${showDebugBounds ? 'border border-green-300 bg-green-50 p-1' : ''}`}>
+        <div className="adm-swiper adm-swiper-horizontal adm-swiper" style={{ '--slide-size': '100%', '--track-offset': '0%' } as React.CSSProperties}>
+          <div className="adm-swiper-track adm-swiper-track-allow-touch-move">
+            <div className="adm-swiper-track-inner" style={{ transform: 'none' }}>
+              <div className="adm-swiper-slide adm-swiper-slide-active">
+                <div className="adm-swiper-item swiper-slide">
+                  <div className="sku-item-wrap false">
+                    <div className="normal-product-card-container sku-item-box">
+                      <div className="main-img-view">
+                        <div className="sku-img-c animate-pulse" />
+                      </div>
+                      <div className="content-view p-2">
+                        <div className="h-4 bg-gray-200 rounded w-9/12 mb-2 animate-pulse" />
+                        <div className="h-3 bg-gray-100 rounded w-7/12 mb-3 animate-pulse" />
+                        <div className="h-3 bg-gray-200 rounded w-16 mb-2 animate-pulse" />
+                        <div className="flex items-end gap-2">
+                          <div className="h-5 bg-gray-200 rounded w-12 animate-pulse" />
+                          <div className="h-3 bg-gray-100 rounded w-10 animate-pulse" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   // AI评价箭头图标（base64）
   const arrowIcon = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABsAAAAcBAMAAABi/9neAAAAFVBMVEUAAAD/SH//SID/SID/SoD/UID/SH8V4fo1AAAABnRSTlMA3yBAMBB3WutwAAAAM0lEQVQY02OgFDAroHDZhFC5iSjSjGko0kxiqNKKNJNGcBGKqS+J8CDC+3gChyWAuCAGAEYUCwam/KUHAAAAAElFTkSuQmCC";
 

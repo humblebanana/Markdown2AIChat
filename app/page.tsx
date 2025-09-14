@@ -4,7 +4,10 @@ import React, { useState, useEffect } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { domToCanvas } from 'modern-screenshot';
 import InputPanel from '@/components/input/InputPanel';
+import PlaybackToolbar from '@/components/chat/PlaybackToolbar';
+import StyleToolbar from '@/components/chat/StyleToolbar';
 import MobilePreviewHTML from '@/components/preview/MobilePreviewHTML';
+import { ThemeVariant } from '@/types/theme';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { parseMarkdownContent } from '@/lib/markdown/parser';
 import { renderMarkdownElements } from '@/lib/markdown/renderer';
@@ -36,6 +39,14 @@ export default function Home() {
   const [previewMode, setPreviewMode] = useState<'single' | 'full'>('single');
   // 预览模式状态（单屏/全屏）
   const [showShortcutHint, setShowShortcutHint] = useState(true);
+
+  // 流式播放（打字机）相关状态
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamedMarkdown, setStreamedMarkdown] = useState('');
+  const [streamSpeed, setStreamSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
+  const [streamStrategy, setStreamStrategy] = useState<'char' | 'block'>('char');
+  const streamTimerRef = React.useRef<number | null>(null);
+  const [themeVariant, setThemeVariant] = useState<ThemeVariant>('edge');
 
   // 客户端平台检测状态
   const [isMac, setIsMac] = useState(false);
@@ -78,6 +89,97 @@ export default function Home() {
   };
 
   // TODO(human): 添加双击重置宽度功能
+
+  // 计算每次迭代追加的字符数（近似 token 数）
+  const getChunkSize = React.useCallback(() => {
+    // 更快的字符推进量（影响三种策略的进度）
+    switch (streamSpeed) {
+      case 'slow':
+        return 2; // 2 chars/step
+      case 'fast':
+        return 12; // 12 chars/step
+      case 'normal':
+      default:
+        return 6; // 6 chars/step
+    }
+  }, [streamSpeed]);
+
+  // 开始或重启流式播放
+  const startStreaming = React.useCallback(() => {
+    if (!markdownValue.trim()) return;
+    // 清理可能存在的计时器
+    if (streamTimerRef.current) {
+      window.clearInterval(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
+    setStreamedMarkdown('');
+    setIsStreaming(true);
+
+    let index = 0;
+    const total = markdownValue.length;
+    // 更快的间隔（slow/normal/fast）：约 ~20/75/200 chars/sec（视内容而定）
+    const interval = streamSpeed === 'slow' ? 100 : streamSpeed === 'normal' ? 80 : 60;
+    const id = window.setInterval(() => {
+      const size = getChunkSize();
+      index = Math.min(total, index + size);
+      setStreamedMarkdown(markdownValue.slice(0, index));
+      if (index >= total) {
+        // 完成
+        window.clearInterval(id);
+        streamTimerRef.current = null;
+        setIsStreaming(false);
+      }
+    }, interval);
+    streamTimerRef.current = id;
+  }, [getChunkSize, markdownValue]);
+
+  // 停止流式播放并切回静态完整展示
+  const stopStreaming = React.useCallback(() => {
+    if (streamTimerRef.current) {
+      window.clearInterval(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
+    setIsStreaming(false);
+    setStreamedMarkdown(markdownValue);
+  }, [markdownValue]);
+
+  // 当原始Markdown变更时，同步或重启流式
+  useEffect(() => {
+    if (!markdownValue.trim()) {
+      // 清空
+      if (streamTimerRef.current) {
+        window.clearInterval(streamTimerRef.current);
+        streamTimerRef.current = null;
+      }
+      setIsStreaming(false);
+      setStreamedMarkdown('');
+      return;
+    }
+    if (isStreaming) {
+      // 重启，保证从头播放
+      startStreaming();
+    } else {
+      // 非流式：直接静态展示
+      setStreamedMarkdown(markdownValue);
+    }
+  }, [markdownValue]);
+
+  // 在速度变化且处于流式时，平滑重启以采用新的速度
+  useEffect(() => {
+    if (isStreaming) {
+      startStreaming();
+    }
+  }, [streamSpeed]);
+
+  // 组件卸载时清理计时器
+  useEffect(() => {
+    return () => {
+      if (streamTimerRef.current) {
+        window.clearInterval(streamTimerRef.current);
+        streamTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 客户端平台检测 - 避免Hydration错误
   useEffect(() => {
@@ -197,21 +299,21 @@ export default function Home() {
 
       let dataURL: string | null = null;
 
+      // 计算捕获尺寸（单屏：视口；全屏：整页）
+      const captureWidth = isSingle ? viewportWidth : 390;
+      const captureHeight = isSingle ? viewportHeight : mobileFrame.scrollHeight;
+
       // 🎯 方案1: html-to-image (主要方案) - 针对移动端优化
       try {
         console.log('🚀 [截图] 尝试 html-to-image (移动端优化)...');
 
-        const captureWidth = isSingle ? viewportWidth : 390;
-        const captureHeight = isSingle ? viewportHeight : mobileFrame.scrollHeight;
-        const options:any = {
+        const options: Parameters<typeof htmlToImage.toPng>[1] = {
           quality: 1.0,
           backgroundColor: '#ffffff', // 纯白背景，避免灰色干扰
           pixelRatio: 2, // 2倍分辨率，确保清晰度
           width: captureWidth,
           height: captureHeight,
           cacheBust: true,
-          useCORS: true,
-          allowTaint: true,
           filter: (node: HTMLElement) => {
             // 过滤掉可能的滚动条和干扰元素
             if (node.nodeType === Node.ELEMENT_NODE) {
@@ -233,7 +335,6 @@ export default function Home() {
             transformOrigin: 'initial',
             overflow: 'hidden', // 隐藏可能的滚动条
             scrollbarWidth: 'none', // 隐藏滚动条(Firefox)
-            msOverflowStyle: 'none', // 隐藏滚动条(IE)
           }
         };
 
@@ -482,10 +583,11 @@ export default function Home() {
             width: showSidebar ? `${100 - sidebarWidth}%` : '100%'
           }}
         >
-          {/* 顶部控制栏 */}
+          {/* 顶部控制栏（样式最左 + 单屏/全屏同一行） */}
           <div className="flex items-center justify-between p-2 bg-gray-100" >
-            {/* 左侧：展开侧边栏按钮 - 仅在隐藏时显示 */}
-            <div className="flex items-center">
+            {/* 左侧：样式切换（固定最左） + 展开侧边栏按钮（可选） */}
+            <div className="flex items-center gap-2">
+              <StyleToolbar inline themeVariant={themeVariant} setThemeVariant={setThemeVariant} />
               {!showSidebar && (
                 <button
                   onClick={() => setShowSidebar(true)}
@@ -500,17 +602,17 @@ export default function Home() {
               )}
             </div>
 
-            {/* 右侧：统一工具栏 */}
-            <div className="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm p-1 space-x-1">
+            {/* 右侧：视图模式切换与保存按钮（与样式同一行） */}
+            <div className="flex items-center gap-2">
               {/* 视图模式切换 */}
-              <div className="flex items-center">
+              <div className="bg-white border border-gray-200 rounded-full shadow-sm p-0.5 flex items-center">
                 <button
                   onClick={() => setPreviewMode('single')}
                   title="单屏模式"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                  className={`min-w-[48px] text-center flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full transition-all ${
                     previewMode === 'single'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -521,10 +623,10 @@ export default function Home() {
                 <button
                   onClick={() => setPreviewMode('full')}
                   title="全屏模式"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                  className={`min-w-[48px] text-center flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full transition-all ${
                     previewMode === 'full'
-                      ? 'bg-gray-100 text-gray-900'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -535,14 +637,12 @@ export default function Home() {
               </div>
 
               {/* 分隔线 */}
-              <div className="w-px h-5 bg-gray-200"></div>
-
               {/* 保存图片按钮 */}
               <button
                 onClick={handleSaveImage}
                 disabled={!markdownValue.trim() || isProcessing || isSaving}
                 className={`
-                  group relative flex items-center justify-center gap-2 px-3 py-1.5
+                  group relative flex items-center justify-center gap-2 px-3 py-1 bg-white border border-gray-200 rounded-full shadow-sm
                   text-sm font-medium rounded-md transition-all duration-200
                   text-gray-600 hover:bg-gray-100 hover:text-gray-900
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent
@@ -576,6 +676,17 @@ export default function Home() {
               </button>
             </div>
           </div>
+          {/* 播放工具栏保留为下一行 */}
+          <PlaybackToolbar
+            streamStrategy={streamStrategy}
+            setStreamStrategy={setStreamStrategy}
+            streamSpeed={streamSpeed}
+            setStreamSpeed={setStreamSpeed}
+            isStreaming={isStreaming}
+            onPlay={startStreaming}
+            onStop={stopStreaming}
+            disabled={!markdownValue.trim()}
+          />
           
           {/* 预览内容区域 */}
           <div className={`flex-1 ${previewMode === 'single' ? 'overflow-hidden' : 'overflow-y-auto'} relative`}>
@@ -583,10 +694,14 @@ export default function Home() {
               markdownContent={markdownValue}
               queryValue={queryValue}
               isLoading={isProcessing}
+              isStreaming={isStreaming}
+              streamProgress={isStreaming ? streamedMarkdown.length : Number.POSITIVE_INFINITY}
+              streamStrategy={streamStrategy}
               showDebugBounds={showDebugBounds}
               previewMode={previewMode}
               showSidebar={showSidebar}
               sidebarWidth={sidebarWidth}
+              themeVariant={themeVariant}
             />
             {/* 角落轻提示：Notion风格，首次自动显示，常态极淡，悬停更清晰 */}
             <div
