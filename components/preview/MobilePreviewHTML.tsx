@@ -183,7 +183,7 @@ export default function MobilePreviewHTML({
   const scaleRatio = !isSingleMode ? getScaleRatio() : 1;
   
   return (
-    <div className={`flex justify-center bg-gray-100 mobile-preview-container transition-all duration-300 ${ 
+    <div className={`flex justify-center bg-gray-50 mobile-preview-container transition-all duration-300 ${ 
       isSingleMode ? 'h-full items-start' : 'min-h-full items-start overflow-y-auto p-2'
     }`}> 
       {/* 手机框架容器 */}

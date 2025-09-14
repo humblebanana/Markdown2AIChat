@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { domToCanvas } from 'modern-screenshot';
 import InputPanel from '@/components/input/InputPanel';
-import PlaybackToolbar from '@/components/chat/PlaybackToolbar';
-import StyleToolbar from '@/components/chat/StyleToolbar';
+// toolbars are composed in PreviewDock
 import MobilePreviewHTML from '@/components/preview/MobilePreviewHTML';
+import PreviewDock from '@/components/toolbar/PreviewDock';
 import { ThemeVariant } from '@/types/theme';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { parseMarkdownContent } from '@/lib/markdown/parser';
@@ -320,6 +320,9 @@ export default function Home() {
               const element = node as HTMLElement;
               const style = window.getComputedStyle(element);
 
+              // 跳过预览Dock（即使将来变更为整页截图也不包含）
+              if (element.dataset && element.dataset.role === 'preview-dock') return false;
+              if (element.closest && element.closest('[data-role="preview-dock"]')) return false;
               // 跳过绝对定位的滚动条或浮层元素
               if (style.position === 'absolute' && element.tagName !== 'DIV') return false;
               // 跳过可能的滚动条元素
@@ -583,101 +586,8 @@ export default function Home() {
             width: showSidebar ? `${100 - sidebarWidth}%` : '100%'
           }}
         >
-          {/* 顶部控制栏（样式最左 + 单屏/全屏同一行） */}
-          <div className="flex items-center justify-between p-2 bg-gray-100" >
-            {/* 左侧：样式切换（固定最左） + 展开侧边栏按钮（可选） */}
-            <div className="flex items-center gap-2">
-              <StyleToolbar inline themeVariant={themeVariant} setThemeVariant={setThemeVariant} />
-              {!showSidebar && (
-                <button
-                  onClick={() => setShowSidebar(true)}
-                  className="flex items-center px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all duration-200"
-                  title="显示侧边栏"
-                >
-                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-                  </svg>
-                  显示输入面板
-                </button>
-              )}
-            </div>
-
-            {/* 右侧：视图模式切换与保存按钮（与样式同一行） */}
-            <div className="flex items-center gap-2">
-              {/* 视图模式切换 */}
-              <div className="bg-white border border-gray-200 rounded-full shadow-sm p-0.5 flex items-center">
-                <button
-                  onClick={() => setPreviewMode('single')}
-                  title="单屏模式"
-                  className={`min-w-[48px] text-center flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full transition-all ${
-                    previewMode === 'single'
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  单屏
-                </button>
-                <button
-                  onClick={() => setPreviewMode('full')}
-                  title="全屏模式"
-                  className={`min-w-[48px] text-center flex items-center justify-center px-3 py-1 text-sm font-medium rounded-full transition-all ${
-                    previewMode === 'full'
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                  </svg>
-                  全屏
-                </button>
-              </div>
-
-              {/* 分隔线 */}
-              {/* 保存图片按钮 */}
-              <button
-                onClick={handleSaveImage}
-                disabled={!markdownValue.trim() || isProcessing || isSaving}
-                className={`
-                  group relative flex items-center justify-center gap-2 px-3 py-1 bg-white border border-gray-200 rounded-full shadow-sm
-                  text-sm font-medium rounded-md transition-all duration-200
-                  text-gray-600 hover:bg-gray-100 hover:text-gray-900
-                  disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent
-                  active:scale-95
-                `}
-                title="保存移动端预览图片 (PNG格式，高质量)"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                    <span>保存中...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      className="w-4 h-4 text-gray-500 group-hover:text-gray-700 transition-colors duration-200"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"
-                      />
-                    </svg>
-                    <span>保存图片</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-          {/* 播放工具栏保留为下一行 */}
-          <PlaybackToolbar
+          {/* 顶部控制Dock：左(播放) / 中(样式) / 右(视图+保存) */}
+          <PreviewDock
             streamStrategy={streamStrategy}
             setStreamStrategy={setStreamStrategy}
             streamSpeed={streamSpeed}
@@ -685,7 +595,16 @@ export default function Home() {
             isStreaming={isStreaming}
             onPlay={startStreaming}
             onStop={stopStreaming}
-            disabled={!markdownValue.trim()}
+            playbackDisabled={!markdownValue.trim()}
+            themeVariant={themeVariant}
+            setThemeVariant={setThemeVariant}
+            previewMode={previewMode}
+            onPreviewModeChange={setPreviewMode}
+            onSaveImage={handleSaveImage}
+            saveDisabled={!markdownValue.trim() || isProcessing || isSaving}
+            isSaving={isSaving}
+            showSidebar={showSidebar}
+            onToggleSidebar={() => setShowSidebar(true)}
           />
           
           {/* 预览内容区域 */}
@@ -705,8 +624,8 @@ export default function Home() {
             />
             {/* 角落轻提示：Notion风格，首次自动显示，常态极淡，悬停更清晰 */}
             <div
-              className={`hidden md:flex items-center gap-1 absolute bottom-2 right-2 
-              text-[12px] text-gray-600 select-none transition-opacity 
+              className={`hidden md:flex items-center gap-1 fixed bottom-3 right-3 md:bottom-4 md:right-4 z-40 
+              text-[12px] text-gray-600 select-none transition-opacity pointer-events-none
               ${showShortcutHint ? 'opacity-90' : 'opacity-90 hover:opacity-100'}`}
               aria-hidden="true"
               title="使用键盘快捷键切换视图"

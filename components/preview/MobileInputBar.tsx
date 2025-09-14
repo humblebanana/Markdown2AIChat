@@ -59,7 +59,6 @@ const MobileInputBar: React.FC<{ variant?: ThemeVariant }> = ({ variant = 'edge'
           {/* 文本输入区域 */}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
             <textarea
-              placeholder="请输入你的问题"
               rows={1}
               style={{
                 width: '100%',

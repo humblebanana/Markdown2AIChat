@@ -23,9 +23,9 @@ export default function Message({ role, children, variant = 'edge', fullBleed = 
     bubble: 'text-[14px] leading-[1.55]'
   } as const;
   const userTypeTune: Record<ThemeVariant, string> = {
-    edge: 'text-[14px] leading-[1.55] font-medium',
-    cards: 'text-[14px] leading-[1.55] font-medium',
-    bubble: 'text-[14px] leading-[1.5] font-medium'
+    edge: 'text-[14px] leading-[1.55] ',
+    cards: 'text-[14px] leading-[1.55] ',
+    bubble: 'text-[14px] leading-[1.5] '
   } as const;
   const styles = {
     bubble: {

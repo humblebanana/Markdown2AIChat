@@ -25,6 +25,15 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Helvetica Neue", Helvetica, "PingFang SC", "HarmonyOS Sans SC", "MiSans", "OPPOSans", "Noto Sans SC", "Source Han Sans SC", "Hiragino Sans GB", "Segoe UI", Roboto, Arial, sans-serif;
 }
 
+/* Hide scrollbars for mobile preview scroller */
+.mobile-device-frame [data-role="mobile-scrollview"] {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.mobile-device-frame [data-role="mobile-scrollview"]::-webkit-scrollbar {
+  display: none;            /* Chrome/Safari */
+}
+
 /* Shimmer loading animation for placeholder images */
 @keyframes shimmer {
   0% {

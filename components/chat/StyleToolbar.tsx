@@ -11,8 +11,8 @@ interface StyleToolbarProps {
 
 export default function StyleToolbar({ themeVariant, setThemeVariant, inline = false }: StyleToolbarProps) {
   return (
-    <div className={inline ? 'flex items-center gap-2' : 'flex items-center justify-end p-2 bg-gray-100'}>
-      <div className="bg-white border border-gray-200 rounded-full shadow-sm p-0.5 flex items-center">
+    <div className={inline ? 'flex items-center gap-2' : 'flex items-center justify-end p-2'}>
+      <div className="bg-gray-50 border border-gray-200 rounded-full p-0.5 flex items-center">
         <button
             onClick={() => setThemeVariant('edge')}
             title="全幅沉浸"

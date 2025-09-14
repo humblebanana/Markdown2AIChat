@@ -18,25 +18,22 @@ export default function ChatHeader({
 }: ChatHeaderProps) {
   const styles = {
     edge: 'bg-white',
-    cards: 'bg-gradient-to-r from-slate-50 to-white',
+    cards: 'bg-white',
     bubble: 'bg-white',
   } as const;
-  const content = (
-    <div className="px-4 py-3 flex-shrink-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          {logoUrl ? (
-            <img src={logoUrl} alt="logo" className="w-6 h-6 mr-2 rounded" />
-          ) : (
-            <div className={`mr-2 w-6 h-6 rounded bg-gray-900 text-white text-[12px] flex items-center justify-center`}>AI</div>
-          )}
-          <div>
-            <div className={`text-sm font-medium leading-none text-gray-900`}>{title}</div>
-            <div className={`text-[11px] leading-none mt-0.5 text-gray-500`}>{subtitle}</div>
+
+  return (
+    <div className={`${styles[variant]}`}>
+      <div className="px-3 py-2">
+        <div className="min-w-0 text-center">
+          <div className="text-[16px] font-medium leading-tight text-gray-900 truncate">
+            {title}
+          </div>
+          <div className="text-[11px] leading-tight mt-0.5 text-gray-500 truncate">
+            {subtitle}
           </div>
         </div>
       </div>
     </div>
   );
-  return <div className={`${styles[variant]}`}>{content}</div>;
 }

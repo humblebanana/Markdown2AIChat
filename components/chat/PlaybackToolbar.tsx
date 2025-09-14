@@ -30,10 +30,10 @@ export default function PlaybackToolbar({
   disabled = false,
 }: PlaybackToolbarProps) {
   return (
-    <div className="flex items-center justify-end p-2 bg-gray-100">
+    <div className="flex items-center justify-end p-2">
       <div className="flex items-center gap-2">
         {/* 策略分段切换 */}
-        <div className="bg-white border border-gray-200 rounded-full shadow-sm p-0.5 flex items-center">
+        <div className="bg-gray-50 border border-gray-200 rounded-full p-0.5 flex items-center">
           <button
             onClick={() => setStreamStrategy('char')}
             title="字符模式"
@@ -55,7 +55,7 @@ export default function PlaybackToolbar({
         </div>
 
         {/* 速度分段切换 */}
-        <div className="bg-white border border-gray-200 rounded-full shadow-sm p-0.5 flex items-center">
+        <div className="bg-gray-50 border border-gray-200 rounded-full p-0.5 flex items-center">
           <button
             onClick={() => setStreamSpeed('slow')}
             title="慢速"
@@ -90,7 +90,7 @@ export default function PlaybackToolbar({
           <button
             onClick={onPlay}
             disabled={disabled}
-            className={`bg-white border border-gray-200 rounded-full shadow-sm px-3 py-1 text-sm font-medium transition-all ${
+            className={`bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-sm font-medium transition-all ${
               !disabled ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'
             }`}
             title="点击播放流式动画（模拟AI逐字生成）"
@@ -101,7 +101,7 @@ export default function PlaybackToolbar({
         ) : (
           <button
             onClick={onStop}
-            className="bg-white border border-gray-200 rounded-full shadow-sm px-3 py-1 text-sm font-medium transition-all text-gray-700 hover:bg-gray-100"
+            className="bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-sm font-medium transition-all text-gray-700 hover:bg-gray-100"
             title="停止并切回静态完整展示"
           >
             <svg className="w-4 h-4 inline-block mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 6h12v12H6z"/></svg>
@@ -112,4 +112,3 @@ export default function PlaybackToolbar({
     </div>
   );
 }
-
