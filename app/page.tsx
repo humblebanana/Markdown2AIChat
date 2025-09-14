@@ -15,7 +15,7 @@ import { RenderedElement } from '@/types/markdown';
 import { debugMarkdownRendering, debugAreaMapping } from '@/lib/debug/markdown-debug';
 
 /**
- * 京言主应用 - Markdown到移动端预览的转换工具
+ * 主应用 - Markdown到移动端预览的转换工具
  */
 export default function Home() {
   // 输入状态
@@ -295,7 +295,7 @@ export default function Home() {
         .replace(/[:.]/g, '-')
         .replace('T', '_')
         .slice(0, 19);
-      const filename = `京言-移动端预览-${timestamp}.png`;
+      const filename = `Mobile Preview-${timestamp}.png`;
 
       let dataURL: string | null = null;
 
