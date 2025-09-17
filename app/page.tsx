@@ -15,7 +15,7 @@ import { RenderedElement } from '@/types/markdown';
 import { debugMarkdownRendering, debugAreaMapping } from '@/lib/debug/markdown-debug';
 
 /**
- * 京言主应用 - Markdown到移动端预览的转换工具
+ * 主应用 - Markdown到移动端预览的转换工具
  */
 export default function Home() {
   // 输入状态
@@ -295,7 +295,8 @@ export default function Home() {
         .replace(/[:.]/g, '-')
         .replace('T', '_')
         .slice(0, 19);
-      const filename = `移动端预览-${timestamp}.png`;
+
+      const filename = `Mobile Preview-${timestamp}.png`;
 
       let dataURL: string | null = null;
 
@@ -525,10 +526,10 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">
-            MACH（Markdown2AIChat）
+            MACH - Markdown2AIChat 
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-            一键将 Markdown 渲染为高保真移动端 AI Chat 界面，所见即所得，可模拟流式生成，并支持一键导出。
+            一键将 Markdown 渲染为高保真移动端 AI Chat 界面，所见即所得，可模拟流式生成，并支持一键导出
             </p>
           </div>
           
