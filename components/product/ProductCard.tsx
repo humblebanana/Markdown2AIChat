@@ -51,15 +51,13 @@ export default function ProductCard({ product, showDebugBounds = false, skeleton
                 <div className="sku-item-wrap false">
                   <div className="normal-product-card-container sku-item-box" data-msgid={product.skuId}>
 
-                    {/* 商品图片区域 */}
+                    {/* 商品图片区域 - 优化的 Shimmer 效果 */}
                     <div className="main-img-view">
                       <div className="sku-img-c">
-                        <img
-                          className="sku-img sku-img-new"
-                          src={product.imageUrl}
-                          alt=""
-                          style={{ width: '100%', height: '100%', objectFit: 'fill' }}
-                        />
+                        <div className="w-full h-full bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 relative overflow-hidden rounded-md">
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent transform -skew-x-12 animate-pulse"></div>
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/20 via-purple-50/10 to-pink-50/20"></div>
+                        </div>
                         <div className="sku-img-mask"></div>
                       </div>
                     </div>

@@ -1,5 +1,4 @@
 import { ProductInfo } from '@/types/product';
-import { getRandomProductImage } from './productImages';
 
 /**
  * 根据SKU ID获取模拟商品数据
@@ -189,17 +188,17 @@ export function getProductMockData(skuId: string, productName?: string): Product
   // 如果有预设数据，使用随机图片更新预设数据
   if (mockData[skuId]) {
     const productData = { ...mockData[skuId] };
-    // 使用SKU ID作为种子生成稳定的随机图片
-    productData.imageUrl = getRandomProductImage(skuId);
+    // 图片已改为统一 shimmer 效果，不再需要 imageUrl
+    productData.imageUrl = '';
     return productData;
   }
 
-  // 生成通用模拟数据，使用随机图片
+  // 生成通用模拟数据，图片使用统一 shimmer 效果
   return {
     skuId,
     title: productName || `商品 SKU: ${skuId}`,
     subtitle: '商品副标题',
-    imageUrl: getRandomProductImage(skuId + (productName || '')), // 使用SKU+名称作为随机种子
+    imageUrl: '', // 图片已改为统一 shimmer 效果，不再需要具体 URL
     price: 999,
     priceUnit: '¥',
     priceLabel: '到手价',

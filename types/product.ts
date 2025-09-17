@@ -9,8 +9,8 @@ export interface ProductInfo {
   title: string;
   /** 商品副标题/理由 */
   subtitle?: string;
-  /** 商品图片URL */
-  imageUrl: string;
+  /** 商品图片URL (已改为统一shimmer效果) */
+  imageUrl?: string;
   /** 主价格 */
   price: number;
   /** 价格单位 */
