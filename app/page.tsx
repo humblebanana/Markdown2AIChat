@@ -13,6 +13,9 @@ import { parseMarkdownContent } from '@/lib/markdown/parser';
 import { renderMarkdownElements } from '@/lib/markdown/renderer';
 import { RenderedElement } from '@/types/markdown';
 import { debugMarkdownRendering, debugAreaMapping } from '@/lib/debug/markdown-debug';
+import { DEFAULT_DEVICE_ID, DEVICE_PRESETS, DeviceSize, DeviceSelectorState } from '@/types/device';
+import { useDeviceStorage } from '@/hooks/use-device-storage';
+import DeviceSelector from '@/components/device/DeviceSelector';
 
 /**
  * 主应用 - Markdown到移动端预览的转换工具
@@ -51,9 +54,46 @@ export default function Home() {
   // 客户端平台检测状态
   const [isMac, setIsMac] = useState(false);
   const [isClientSide, setIsClientSide] = useState(false);
+
+  // 设备尺寸相关状态
+  const [deviceState, setDeviceState] = useState<DeviceSelectorState>({
+    selectedDeviceId: DEFAULT_DEVICE_ID,
+    customSize: { width: 393, height: 852 },
+    isLandscape: false,
+    zoomLevel: 1.0
+  });
+
+  // 使用本地存储保存设备偏好
+  useDeviceStorage(deviceState, setDeviceState);
   
   // 防抖处理，300ms延迟
   const debouncedMarkdown = useDebouncedValue(markdownValue, 300);
+
+  // 设备尺寸处理函数
+  const handleDeviceChange = (deviceId: string) => {
+    setDeviceState(prev => ({ ...prev, selectedDeviceId: deviceId }));
+  };
+
+  const handleCustomSizeChange = (size: DeviceSize) => {
+    setDeviceState(prev => ({ ...prev, customSize: size }));
+  };
+
+  const handleOrientationToggle = () => {
+    setDeviceState(prev => ({ ...prev, isLandscape: !prev.isLandscape }));
+  };
+
+  const handleZoomChange = (zoom: number) => {
+    setDeviceState(prev => ({ ...prev, zoomLevel: zoom }));
+  };
+
+  // 获取当前设备尺寸
+  const getCurrentDeviceSize = (): DeviceSize => {
+    if (deviceState.selectedDeviceId === 'custom') {
+      return deviceState.customSize;
+    }
+    const device = DEVICE_PRESETS.find(d => d.id === deviceState.selectedDeviceId);
+    return device?.size || { width: 393, height: 852 };
+  };
 
   // 拖拽调整宽度的处理函数（自由拖拽）
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -622,10 +662,26 @@ export default function Home() {
               showSidebar={showSidebar}
               sidebarWidth={sidebarWidth}
               themeVariant={themeVariant}
+              deviceSize={getCurrentDeviceSize()}
+              isLandscape={deviceState.isLandscape}
+              zoomLevel={deviceState.zoomLevel}
             />
+
+            {/* 设备尺寸选择器 - 浮动在右下角 */}
+            <DeviceSelector
+              selectedDeviceId={deviceState.selectedDeviceId}
+              customSize={deviceState.customSize}
+              isLandscape={deviceState.isLandscape}
+              zoomLevel={deviceState.zoomLevel}
+              onDeviceChange={handleDeviceChange}
+              onCustomSizeChange={handleCustomSizeChange}
+              onOrientationToggle={handleOrientationToggle}
+              onZoomChange={handleZoomChange}
+            />
+
             {/* 角落轻提示：Notion风格，首次自动显示，常态极淡，悬停更清晰 */}
             <div
-              className={`hidden md:flex items-center gap-1 fixed bottom-3 right-3 md:bottom-4 md:right-4 z-40 
+              className={`hidden md:flex items-center gap-1 fixed bottom-3 left-3 md:bottom-4 md:left-4 z-40
               text-[12px] text-gray-600 select-none transition-opacity pointer-events-none
               ${showShortcutHint ? 'opacity-90' : 'opacity-90 hover:opacity-100'}`}
               aria-hidden="true"

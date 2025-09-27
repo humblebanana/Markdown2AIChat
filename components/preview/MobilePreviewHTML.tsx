@@ -8,6 +8,7 @@ import ChatHeader from '@/components/chat/ChatHeader';
 import Message from '@/components/chat/Message';
 import ProductCard from '@/components/product/ProductCard';
 import { getProductMockData } from '@/lib/product/productUtils';
+import { DeviceSize } from '@/types/device';
 
 // 通用SKU检测和渲染函数
 const renderWithSkuCards = (
@@ -108,6 +109,10 @@ interface MobilePreviewHTMLProps {
   showSidebar?: boolean; // 侧边栏显示状态，用于计算可用空间
   sidebarWidth?: number; // 侧边栏宽度百分比，用于精确计算缩放
   themeVariant?: import('@/types/theme').ThemeVariant;
+  // 新增设备尺寸相关属性
+  deviceSize?: DeviceSize;
+  isLandscape?: boolean;
+  zoomLevel?: number;
 }
 
 /**
@@ -125,7 +130,10 @@ export default function MobilePreviewHTML({
   previewMode = 'single',
   showSidebar = true,
   sidebarWidth = 50,
-  themeVariant = 'edge'
+  themeVariant = 'edge',
+  deviceSize = { width: 393, height: 852 },
+  isLandscape = false,
+  zoomLevel = 1.0
 }: MobilePreviewHTMLProps) {
   
   const isSingleMode = previewMode === 'single';
@@ -158,29 +166,38 @@ export default function MobilePreviewHTML({
     return () => window.cancelAnimationFrame(id);
   }, [markdownContent, isStreaming, isSingleMode, streamProgress]);
   
-  // 计算全屏模式的缩放比例 - 确保完整内容可见
-  const getScaleRatio = () => {
+  // 计算设备尺寸和缩放
+  const currentDeviceSize = useMemo(() => {
+    return isLandscape
+      ? { width: deviceSize.height, height: deviceSize.width }
+      : deviceSize;
+  }, [deviceSize, isLandscape]);
+
+  // 计算全屏模式的自动缩放比例
+  const getAutoScaleRatio = () => {
     if (typeof window === 'undefined') return 0.5; // SSR默认值
-    
+
     // 计算可用的显示区域
-    const availableWidth = showSidebar ? 
+    const availableWidth = showSidebar ?
       window.innerWidth * (100 - sidebarWidth) / 100 - 60 : window.innerWidth - 60;
     const availableHeight = window.innerHeight - 200; // 减去头部和控制栏高度
-    
-    // 移动端原始尺寸
-    const targetWidth = 390;
-    const targetHeight = 1800; // 预估长内容的高度
-    
+
+    // 使用当前设备尺寸
+    const targetWidth = currentDeviceSize.width;
+    const targetHeight = Math.max(currentDeviceSize.height, 800); // 最小高度
+
     // 基于宽度和高度计算缩放比例，取较小值确保完整显示
     const widthRatio = availableWidth / targetWidth;
     const heightRatio = availableHeight / targetHeight;
-    
-    // 选择更小的比例，确保内容完整可见，范围控制在0.3-0.8之间
-    const ratio = Math.min(0.8, Math.max(0.3, Math.min(widthRatio, heightRatio)));
+
+    // 选择更小的比例，确保内容完整可见，范围控制在0.3-1.0之间
+    const ratio = Math.min(1.0, Math.max(0.3, Math.min(widthRatio, heightRatio)));
     return Number(ratio.toFixed(2));
   };
-  
-  const scaleRatio = !isSingleMode ? getScaleRatio() : 1;
+
+  // 确定最终缩放比例：手动设置优先，自动缩放作为后备
+  const finalZoomLevel = zoomLevel === 1.0 && !isSingleMode ? getAutoScaleRatio() : zoomLevel;
+  const scaleRatio = finalZoomLevel;
   
   return (
     <div className={`flex justify-center bg-gray-50 mobile-preview-container transition-all duration-300 ${ 
@@ -197,14 +214,16 @@ export default function MobilePreviewHTML({
           fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter, "Helvetica Neue", Helvetica, "PingFang SC", "HarmonyOS Sans SC", "MiSans", "OPPOSans", "Noto Sans SC", "Source Han Sans SC", "Hiragino Sans GB", "Segoe UI", Roboto, Arial, sans-serif',
           ...(isSingleMode
             ? {
-                width: '390px',
-                height: '844px',
-                minWidth: '390px',
-                minHeight: '844px'
+                width: `${currentDeviceSize.width}px`,
+                height: `${currentDeviceSize.height}px`,
+                minWidth: `${currentDeviceSize.width}px`,
+                minHeight: `${currentDeviceSize.height}px`,
+                transform: zoomLevel !== 1.0 ? `scale(${zoomLevel})` : undefined,
+                transformOrigin: 'top center'
               }
             : {
-                width: '390px',
-                minWidth: '390px',
+                width: `${currentDeviceSize.width}px`,
+                minWidth: `${currentDeviceSize.width}px`,
                 height: 'auto',
                 minHeight: 'auto',
                 maxHeight: 'none', // 允许内容完全展开

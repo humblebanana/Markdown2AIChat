@@ -16,7 +16,7 @@ const MobileInputBar: React.FC<{ variant?: ThemeVariant }> = ({ variant = 'edge'
     height: '83px',
     zIndex: 30,
     // 透明承载层，液态玻璃由内部组件提供
-    backgroundColor: 'transparent',
+    backgroundColor: '#ffffff',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -47,8 +47,7 @@ const MobileInputBar: React.FC<{ variant?: ThemeVariant }> = ({ variant = 'edge'
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: 9999,
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.45))',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 6px rgba(16,24,40,0.12)'
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.45))'
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
