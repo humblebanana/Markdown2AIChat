@@ -10,7 +10,7 @@ const STORAGE_KEY = 'mach-device-preferences';
 
 export function useDeviceStorage(
   deviceState: DeviceSelectorState,
-  setDeviceState: (state: DeviceSelectorState) => void
+  setDeviceState: (state: DeviceSelectorState | ((prev: DeviceSelectorState) => DeviceSelectorState)) => void
 ) {
   // 加载保存的偏好设置
   useEffect(() => {
